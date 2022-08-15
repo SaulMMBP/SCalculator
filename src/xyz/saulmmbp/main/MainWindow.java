@@ -55,6 +55,17 @@ public class MainWindow extends JFrame{
     private Font font;
     
     private ActionListener digits;
+    private ActionListener operations;
+    
+    private enum Entrada {NINGUNA, DIGITO, OPERADOR, CE };
+    private Entrada ultimaEntrada;
+    
+    private boolean decimal;
+    private char operator;
+    
+    private byte numOperandos;
+    private double operando1;
+    private double operando2;
     
     public MainWindow() {
         /* Configuraciones de ventana */
@@ -70,6 +81,16 @@ public class MainWindow extends JFrame{
         
         /* inicialización de componentes */
         initComponents();
+        
+        /* Inicialización de otros elementos */
+        ultimaEntrada = Entrada.NINGUNA;
+        
+        decimal = false;
+        
+        numOperandos = 0;
+        operando1 = 0;
+        operando2 = 0;
+        
     }
 
     /**
@@ -110,11 +131,18 @@ public class MainWindow extends JFrame{
             }
         };
         
+        operations = new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                operationsActionPerformed(event);
+            }
+        };
+        
         /* Configuraciones */
         textfield.setBackground(Color.YELLOW);
         textfield.setEditable(false);
         textfield.setHorizontalAlignment(JTextField.RIGHT);
         textfield.setFont(font);
+        textfield.setText("0.");
         
         btn0.setText("0");
         btn0.addActionListener(digits);
@@ -147,16 +175,49 @@ public class MainWindow extends JFrame{
         btn9.addActionListener(digits);
         
         btnPlus.setText("+");
+        btnPlus.addActionListener(operations);
+        
         btnMinus.setText("-");
+        btnMinus.addActionListener(operations);
+        
         btnTimes.setText("x");
+        btnTimes.addActionListener(operations);
+        
         btnDividedBy.setText("/");
+        btnDividedBy.addActionListener(operations);
+        
         btnEquals.setText("=");
+        btnEquals.addActionListener(operations);
+        
         
         btnDot.setText(".");
+        btnDot.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                decimalActionPerformed(event);
+            }
+        });
+        
         btnPorcent.setText("%");
+        btnPorcent.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                porcentActionPerformed(event);
+            }
+        });
+        
         
         btnC.setText("C");
+        btnC.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                cActionPerformed(event);
+            }
+        });
+        
         btnCE.setText("CE");
+        btnCE.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                ceActionPerformed(event);
+            }
+        });
         
         /* Posicionamiento en ventana */
         restricciones.weightx = 1000; // Se redimensiona en x
@@ -212,12 +273,137 @@ public class MainWindow extends JFrame{
         add(componente);
     }
     
+    /**
+     * Método para escribir en pantalla los números 
+     * @param event
+     */
     public void digitActionPerformed(ActionEvent event) {
         /* obtener la fuente del evento */
         JButton button = (JButton) event.getSource();
+        String text = button.getText();
+        
+        /* si la última entrada es diferente de un dígito y se ingresa un 0, no escribir nada */
+        /* si la última entrada es diferente de un dígito, se setea el area a una cadena vacía y permite ingresar números */
+        if (ultimaEntrada != Entrada.DIGITO) {
+            if (text.compareTo("0") == 0) return;
+            textfield.setText("");
+            ultimaEntrada = Entrada.DIGITO;
+            decimal = false;
+        }
         
         /* asignar el texto al campo de texto */
-        textfield.setText(textfield.getText() + button.getText());
+        textfield.setText(textfield.getText() + text);
     }
     
+    /**
+     * Método que ingresa un punto decimal si no hay dígitos o también si los hay y establece que hay punto decimal,
+     * también evita que se introduzcan más de un punto decimal
+     * @param event
+     */
+    public void decimalActionPerformed(ActionEvent event) {
+        if (ultimaEntrada != Entrada.DIGITO) { // Entra el punto si no hay dígitos
+            textfield.setText("0.");
+            ultimaEntrada = Entrada.DIGITO;
+        } else if (!decimal) { // Entra el punto si hay dígitos, solo se permite un punto
+            textfield.setText(textfield.getText() + ".");
+        }
+        decimal = true; // establece si hay punto decimal en la entrada
+    }
+    
+    /**
+     * Método que responde a los eventos de operación
+     * @param event
+     */
+    public void operationsActionPerformed(ActionEvent event) {
+        JButton button = (JButton) event.getSource();
+        String text = button.getText();
+        
+        /* Caso cuando el primer operando es negativo, es decir, lo antecede un "-" */
+        if ((numOperandos == 0) && (text.compareTo("-") == 0)) {
+            ultimaEntrada = Entrada.DIGITO;
+        }
+        
+        /* cuenta el número de operandos guardados */
+        if (ultimaEntrada == Entrada.DIGITO) {
+            numOperandos++;
+        }
+        
+        /* almacena los operandos y realiza las operaciones */
+        if (numOperandos == 1) {
+            operando1 = Double.parseDouble(textfield.getText());
+        } else if (numOperandos == 2) {
+            operando2 = Double.parseDouble(textfield.getText());
+            
+            /* operaciones acumulativas y resultado se guarda en operador 1 */
+            switch (operator) {
+                case '+': 
+                    operando1 += operando2;
+                    break;
+                case '-':
+                    operando1 -= operando2;
+                    break;
+                case 'x':
+                    operando1 *= operando2;
+                    break;
+                case '/':
+                    operando1 /= operando2;
+                    break;
+                case '=':
+                    operando1 = operando2;
+                    break;
+            }
+            
+            /* se muestra el resultado almacenado en operador1 */
+            textfield.setText(Double.toString(operando1));
+            
+            /* se setea el numero de operadores a uno por si se requiere volver a utilizar */
+            numOperandos = 1;
+        }
+        
+        /* se resetea el operador */
+        operator = text.charAt(0);
+        
+        /* se setea la última entrada como operador */
+        ultimaEntrada = Entrada.OPERADOR;
+    }
+    
+    /**
+     * Método que responde a operaciones con porcentajes
+     * @param event
+     */
+    public void porcentActionPerformed(ActionEvent event) {
+        double resultado;
+        if (ultimaEntrada == Entrada.DIGITO) {
+            resultado = (operando1 * Double.parseDouble(textfield.getText())) / 100; // Obtiene el porcentaje especificado del operando 1 
+            
+            textfield.setText(Double.toString(resultado)); // muestra resultado en pantalla
+            
+            btnEquals.doClick(); // simula el botón '=' para obtener el resultado de la operación el porcentaje
+            
+            btnPorcent.requestFocus(); // Enfoca el botón de porcentaje
+        }
+    }
+    
+    /**
+     * Método que reinicia todas las variables de la calculadora.
+     * @param event
+     */
+    public void cActionPerformed(ActionEvent event) {
+        textfield.setText("0.");
+        ultimaEntrada = Entrada.NINGUNA;
+        decimal = false;
+        numOperandos = 0;
+        operando1 = 0;
+        operando2 = 0;
+    }
+    
+    /**
+     * Método que reinicia las variables que implican el último dígito introducido
+     * @param event
+     */
+    public void ceActionPerformed(ActionEvent event) {
+        textfield.setText("0.");
+        ultimaEntrada = Entrada.CE;
+        decimal = false;
+    }
 }
